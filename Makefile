@@ -1,14 +1,14 @@
-CFLAGS = -Wall -Wextra -Werror -std=gnu11
+CFLAGS = -Wall -Wextra -Werror -std=gnu11 -DENABLE_UDEV
 LDFLAGS = -Wall -Wextra -Werror
 
 BIN = imx-sdp
 BUILD_DIR = build
-SRC = main.c stages.c steps.c sdp.c
+SRC = main.c stages.c steps.c sdp.c udev.c
 OBJ = $(SRC:%.c=$(BUILD_DIR)/%.o)
 DEP = $(OBJ:%.o=%.d)
 
 $(BIN): $(OBJ)
-	$(CC) $(LDFLAGS) -o $@ $^ -lhidapi-hidraw
+	$(CC) $(LDFLAGS) -o $@ $^ -lhidapi-hidraw -ludev
 
 -include $(DEP)
 

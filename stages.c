@@ -2,10 +2,17 @@
 #include "steps.h"
 #include "sdp.h"
 #include <errno.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef ENABLE_UDEV
+#include "udev.h"
+#else
+#include <unistd.h>
+#endif
 
 struct stage
 {
@@ -82,13 +89,58 @@ sdp_stages *sdp_parse_stages(int count, char *s[])
             goto free_stages;
         }
     }
-    printf("Parsed %d stages\n", count);
 
     return stages;
 
 free_stages:
     sdp_free_stages(stages);
     return NULL;
+}
+
+static hid_device *open_device(uint16_t vid, uint16_t pid, bool wait)
+{
+    hid_device *result = NULL;
+
+#ifdef ENABLE_UDEV
+    sdp_udev *udev = sdp_udev_init();
+    if (!udev)
+    {
+        fprintf(stderr, "ERROR: Failed to initialize udev\n");
+        goto out;
+    }
+#endif
+
+    result = hid_open(vid, pid, NULL);
+    if (!result)
+    {
+        if (!wait)
+            goto free_udev;
+
+        printf("Waiting for device...\n");
+
+#ifdef ENABLE_UDEV
+        const char *devpath = sdp_udev_wait(udev, vid, pid, 5000);
+        if (!devpath)
+        {
+            fprintf(stderr, "ERROR: Timeout!\n");
+            goto free_udev;
+        }
+        result = hid_open_path(devpath);
+#else
+        do {
+            usleep(500000ul); // 500ms
+            result = hid_open(vid, pid, NULL);
+        } while (!result);
+#endif
+    }
+
+free_udev:
+#ifdef ENABLE_UDEV
+    sdp_udev_free(udev);
+out:
+#endif
+
+    return result;
 }
 
 int sdp_execute_stages(sdp_stages *stages)
@@ -102,7 +154,7 @@ int sdp_execute_stages(sdp_stages *stages)
         struct stage *stage = stages->stages + i;
         printf("[Stage %d/%d] VID=0x%04x PID=0x%04x\n", i+1, stages->count, stage->usb_vid, stage->usb_pid);
 
-        hid_device *handle = hid_open(stage->usb_vid, stage->usb_pid, NULL);
+        hid_device *handle = open_device(stage->usb_vid, stage->usb_pid, true);
         if (!handle)
         {
             fprintf(stderr, "ERROR: Failed to open device: %ls\n", hid_error(handle));
@@ -126,10 +178,13 @@ int sdp_execute_stages(sdp_stages *stages)
         hid_close(handle);
     }
 
-	if (hid_exit())
-		fprintf(stderr, "ERROR: hidapi exit failed\n");
+    if (hid_exit())
+        fprintf(stderr, "ERROR: hidapi exit failed\n");
 
-	return res;
+    if (!res)
+        printf("All stages done\n");
+
+    return res;
 }
 
 void sdp_free_stages(sdp_stages *stages)
