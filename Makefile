@@ -1,5 +1,5 @@
-CFLAGS = -Wall -Wextra -Werror -std=gnu11 -DENABLE_UDEV
-LDFLAGS = -Wall -Wextra -Werror
+CFLAGS = -g -Wall -Wextra -Werror -std=gnu11 -DENABLE_UDEV
+LDFLAGS = -g -Wall -Wextra -Werror
 
 BIN = imx-sdp
 BUILD_DIR = build

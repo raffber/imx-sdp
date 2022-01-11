@@ -1,34 +1,79 @@
 #include "stages.h"
-#include <stdlib.h>
+#include <getopt.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
+
+static void usage(const char *progname);
+
+static const struct option longopts[] = {
+	{"help", no_argument, NULL, 'h'},
+	{"wait", no_argument, NULL, 'w'},
+	{0},
+};
 
 int main(int argc, char *argv[])
 {
-	int status = EXIT_FAILURE;
+	int opt;
+	bool initial_wait = false;
 
-	if (argc <= 1)
+	while ((opt = getopt_long(argc, argv, "hw", longopts, NULL)) != -1)
 	{
-		fprintf(stderr, "ERROR: Expected at least one argument\n");
-		goto out;
+		switch (opt)
+		{
+		case 'h':
+			usage(argv[0]);
+			return EXIT_SUCCESS;
+		case 'w':
+			initial_wait = true;
+			break;
+		default:
+			return EXIT_FAILURE;
+		}
 	}
-	
-	sdp_stages *stages = sdp_parse_stages(argc-1, argv+1);
+
+	if (optind >= argc)
+	{
+		fprintf(stderr, "ERROR: Expected at least one stage\n");
+		usage(argv[0]);
+		return EXIT_FAILURE;
+	}
+
+	sdp_stages *stages = sdp_parse_stages(argc - optind, argv + optind);
 	if (!stages)
 	{
 		fprintf(stderr, "ERROR: Failed to parse stages\n");
-		goto out;
+		return EXIT_FAILURE;
 	}
 
-	int result = sdp_execute_stages(stages);
-	if (result)
-	{
-		goto free_stages;
-	}
+	int result = sdp_execute_stages(stages, initial_wait);
 
-	status = EXIT_SUCCESS;
-
-free_stages:
 	sdp_free_stages(stages);
-out:
-	return status;
+
+	return result;
+}
+
+static void usage(const char *progname)
+{
+	printf(
+		"Usage: %s [OPTION]... <STAGE>...\n"
+		"\n"
+		"The following OPTIONs are available:\n"
+		"\n"
+		"  -h, --help  print this usage message\n"
+		"  -w, --wait  wait for the first stage\n"
+		"\n"
+		"The STAGEs have the following format:\n"
+		"\n"
+		"  <VID>:<PID>[,<STEP>...]\n"
+		"    VID  USB Vendor ID as 4-digit hex number\n"
+		"    PID  USB Product ID as 4-digit hex number\n"
+		"\n"
+		"The STEPs can be one of the following operations:\n"
+		"\n"
+		"  write_file:<FILE>:<ADDRESS>\n"
+		"    Write the contents of FILE to ADDRESS\n"
+		"  jump_address:<ADDRESS>\n"
+		"    Jump to the IMX image located at ADDRESS\n",
+		progname);
 }

@@ -2,7 +2,6 @@
 #include "steps.h"
 #include "sdp.h"
 #include <errno.h>
-#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,7 +32,7 @@ static int parse_stage(char *const s, struct stage *stage)
     char *tok = strtok_r(s, ",", &saveptr);
     if (!tok)
     {
-        fprintf(stderr, "ERROR: Device steps \"%s\" invalid\n", s);
+        fprintf(stderr, "ERROR: Stage \"%s\" invalid\n", s);
         return 1;
     }
 
@@ -41,11 +40,12 @@ static int parse_stage(char *const s, struct stage *stage)
     int conversions = sscanf(tok, "%04x:%04x", &vid, &pid);
     if (conversions != 2)
     {
-        fprintf(stderr, "ERROR: Device steps didn't contain USB VID/PID\n");
+        fprintf(stderr, "ERROR: Stage didn't contain USB VID/PID");
         if (errno != 0)
             fprintf(stderr, ": %s\n", strerror(errno));
         else
             fputc('\n', stderr);
+        return 1;
     }
 
     stage->usb_vid = vid;
@@ -127,7 +127,8 @@ static hid_device *open_device(uint16_t vid, uint16_t pid, bool wait)
         }
         result = hid_open_path(devpath);
 #else
-        do {
+        do
+        {
             usleep(500000ul); // 500ms
             result = hid_open(vid, pid, NULL);
         } while (!result);
@@ -143,18 +144,19 @@ out:
     return result;
 }
 
-int sdp_execute_stages(sdp_stages *stages)
+int sdp_execute_stages(sdp_stages *stages, bool initial_wait)
 {
     int res = hid_init();
-	if (res)
-		fprintf(stderr, "ERROR: hidapi init failed\n");
+    if (res)
+        fprintf(stderr, "ERROR: hidapi init failed\n");
 
-    for (int i=0; !res && i<stages->count; ++i)
+    for (int i = 0; !res && i < stages->count; ++i)
     {
         struct stage *stage = stages->stages + i;
-        printf("[Stage %d/%d] VID=0x%04x PID=0x%04x\n", i+1, stages->count, stage->usb_vid, stage->usb_pid);
+        printf("[Stage %d/%d] VID=0x%04x PID=0x%04x\n", i + 1, stages->count, stage->usb_vid, stage->usb_pid);
 
-        hid_device *handle = open_device(stage->usb_vid, stage->usb_pid, true);
+        bool wait = initial_wait || (i > 0);
+        hid_device *handle = open_device(stage->usb_vid, stage->usb_pid, wait);
         if (!handle)
         {
             fprintf(stderr, "ERROR: Failed to open device: %ls\n", hid_error(handle));
