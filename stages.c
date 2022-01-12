@@ -1,13 +1,14 @@
 #include "stages.h"
-#include "steps.h"
+#include "config.h"
 #include "sdp.h"
+#include "steps.h"
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef ENABLE_UDEV
+#ifdef WITH_UDEV
 #include "udev.h"
 #else
 #include <unistd.h>
@@ -101,7 +102,7 @@ static hid_device *open_device(uint16_t vid, uint16_t pid, bool wait)
 {
     hid_device *result = NULL;
 
-#ifdef ENABLE_UDEV
+#ifdef WITH_UDEV
     sdp_udev *udev = sdp_udev_init();
     if (!udev)
     {
@@ -118,7 +119,7 @@ static hid_device *open_device(uint16_t vid, uint16_t pid, bool wait)
 
         printf("Waiting for device...\n");
 
-#ifdef ENABLE_UDEV
+#ifdef WITH_UDEV
         const char *devpath = sdp_udev_wait(udev, vid, pid, 5000);
         if (!devpath)
         {
@@ -136,7 +137,7 @@ static hid_device *open_device(uint16_t vid, uint16_t pid, bool wait)
     }
 
 free_udev:
-#ifdef ENABLE_UDEV
+#ifdef WITH_UDEV
     sdp_udev_free(udev);
 out:
 #endif

@@ -1,7 +1,9 @@
+#include "config.h"
 #include "stages.h"
 #include <getopt.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdlib.h>
 
 static void usage(const char *progname);
@@ -9,6 +11,7 @@ static void usage(const char *progname);
 static const struct option longopts[] = {
 	{"help", no_argument, NULL, 'h'},
 	{"wait", no_argument, NULL, 'w'},
+	{"version", no_argument, NULL, 'V'},
 	{0},
 };
 
@@ -17,7 +20,7 @@ int main(int argc, char *argv[])
 	int opt;
 	bool initial_wait = false;
 
-	while ((opt = getopt_long(argc, argv, "hw", longopts, NULL)) != -1)
+	while ((opt = getopt_long(argc, argv, "hwV", longopts, NULL)) != -1)
 	{
 		switch (opt)
 		{
@@ -27,6 +30,9 @@ int main(int argc, char *argv[])
 		case 'w':
 			initial_wait = true;
 			break;
+		case 'V':
+			puts(VERSION);
+			return EXIT_SUCCESS;
 		default:
 			return EXIT_FAILURE;
 		}

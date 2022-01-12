@@ -1,0 +1,30 @@
+project('imx-sdp', 'c',
+    version: '0.1',
+    license: 'GPL3',
+)
+
+libudev = dependency('libudev', required: get_option('udev'))
+hidapi = dependency('hidapi-hidraw')
+
+src = files(
+    'main.c',
+    'sdp.c',
+    'stages.c',
+    'steps.c',
+)
+
+cfg = configuration_data()
+cfg.set('VERSION', meson.project_version())
+
+if libudev.found()
+    cfg.set('WITH_UDEV', 1)
+    src += 'udev.c'
+endif
+
+configure_file(input: 'config.h.in', output: 'config.h', configuration: cfg)
+cfg_inc = include_directories('.')
+
+executable('imx-sdp', src,
+    dependencies: [libudev, hidapi],
+    include_directories: cfg_inc,
+)

@@ -1,3 +1,2 @@
 - README
-- autotools
 - properly handle (HAB) status
