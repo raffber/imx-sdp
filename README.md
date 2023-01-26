@@ -16,6 +16,7 @@ following design goals:
     The following OPTIONs are available:
 
     -h, --help  print this usage message
+    -p, --path  specify the USB device path, e.g. 3-1.1
     -V, --version  print version
     -w, --wait  wait for the first stage
 

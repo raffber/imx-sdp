@@ -10,8 +10,9 @@ static void usage(const char *progname);
 
 static const struct option longopts[] = {
 	{"help", no_argument, NULL, 'h'},
-	{"wait", no_argument, NULL, 'w'},
+	{"path", required_argument, NULL, 'p'},
 	{"version", no_argument, NULL, 'V'},
+	{"wait", no_argument, NULL, 'w'},
 	{0},
 };
 
@@ -23,14 +24,18 @@ int main(int argc, char *argv[])
 
 	int opt;
 	bool initial_wait = false;
+	const char *usb_path = NULL;
 
-	while ((opt = getopt_long(argc, argv, "hwV", longopts, NULL)) != -1)
+	while ((opt = getopt_long(argc, argv, "hp:wV", longopts, NULL)) != -1)
 	{
 		switch (opt)
 		{
 		case 'h':
 			usage(argv[0]);
 			return EXIT_SUCCESS;
+		case 'p':
+			usb_path = optarg;
+			break;
 		case 'w':
 			initial_wait = true;
 			break;
@@ -56,7 +61,7 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	int result = sdp_execute_stages(stages, initial_wait);
+	int result = sdp_execute_stages(stages, initial_wait, usb_path);
 
 	sdp_free_stages(stages);
 
@@ -71,6 +76,7 @@ static void usage(const char *progname)
 		"The following OPTIONs are available:\n"
 		"\n"
 		"  -h, --help  print this usage message\n"
+		"  -p, --path  specify the USB device path, e.g. 3-1.1\n"
 		"  -V, --version  print version\n"
 		"  -w, --wait  wait for the first stage\n"
 		"\n"

@@ -98,7 +98,50 @@ free_stages:
     return NULL;
 }
 
-static hid_device *open_device(uint16_t vid, uint16_t pid, bool wait)
+#ifdef WITH_UDEV
+static hid_device *_open_device(sdp_udev *udev, uint16_t vid, uint16_t pid, const char *usb_path, bool quiet)
+{
+    hid_device *result = NULL;
+
+    struct hid_device_info * const enumerator = hid_enumerate(vid, pid);
+    if (!enumerator)
+    {
+        if (!quiet)
+            fprintf(stderr, "ERROR: Failed to enumerate HID devices: %ls\n", hid_error(NULL));
+        return NULL;
+    }
+
+    const char *device_path = NULL;
+    for (struct hid_device_info *i = enumerator; !device_path && i; i = i->next)
+    {
+        if (!usb_path || sdp_udev_matching_usb_path(udev, i->path, usb_path))
+            device_path = i->path;
+    }
+
+    if (device_path)
+    {
+        result = hid_open_path(device_path);
+        if (!result && !quiet)
+            fprintf(stderr, "ERROR: Failed to open device: %ls\n", hid_error(result));
+    }
+    else if (!quiet)
+        fprintf(stderr, "ERROR: No matching device found\n");
+
+    hid_free_enumeration(enumerator);
+
+    return result;
+}
+#else
+static hid_device *_open_device(sdp_udev *udev, uint16_t vid, uint16_t pid, const char *path, bool quiet)
+{
+    struct hid_device *result = hid_open(vid, pid, NULL);
+    if (!result && !quiet)
+        fprintf(stderr, "ERROR: Failed to open device: %ls\n", hid_error(result));
+    return result;
+}
+#endif
+
+static hid_device *open_device(uint16_t vid, uint16_t pid, const char *usb_path, bool wait)
 {
     hid_device *result = NULL;
 
@@ -109,9 +152,16 @@ static hid_device *open_device(uint16_t vid, uint16_t pid, bool wait)
         fprintf(stderr, "ERROR: Failed to initialize udev\n");
         goto out;
     }
+
+#else
+    if (usb_path)
+    {
+        fprintf(stderr, "ERROR: Filtering by path is only supported with udev support\n");
+        goto out;
+    }
 #endif
 
-    result = hid_open(vid, pid, NULL);
+    result = _open_device(udev, vid, pid, usb_path, wait);
     if (!result)
     {
         if (!wait)
@@ -120,13 +170,15 @@ static hid_device *open_device(uint16_t vid, uint16_t pid, bool wait)
         printf("Waiting for device...\n");
 
 #ifdef WITH_UDEV
-        const char *devpath = sdp_udev_wait(udev, vid, pid, 5000);
+        const char *devpath = sdp_udev_wait(udev, vid, pid, usb_path, 5000);
         if (!devpath)
         {
             fprintf(stderr, "ERROR: Timeout!\n");
             goto free_udev;
         }
         result = hid_open_path(devpath);
+        if (!result)
+            fprintf(stderr, "ERROR: Failed to open device: %ls\n", hid_error(result));
 #else
         do
         {
@@ -145,7 +197,7 @@ out:
     return result;
 }
 
-int sdp_execute_stages(sdp_stages *stages, bool initial_wait)
+int sdp_execute_stages(sdp_stages *stages, bool initial_wait, const char *usb_path)
 {
     int res = hid_init();
     if (res)
@@ -157,10 +209,9 @@ int sdp_execute_stages(sdp_stages *stages, bool initial_wait)
         printf("[Stage %d/%d] VID=0x%04x PID=0x%04x\n", i + 1, stages->count, stage->usb_vid, stage->usb_pid);
 
         bool wait = initial_wait || (i > 0);
-        hid_device *handle = open_device(stage->usb_vid, stage->usb_pid, wait);
+        hid_device *handle = open_device(stage->usb_vid, stage->usb_pid, usb_path, wait);
         if (!handle)
         {
-            fprintf(stderr, "ERROR: Failed to open device: %ls\n", hid_error(handle));
             res = 1;
             break;
         }
