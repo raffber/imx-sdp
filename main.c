@@ -67,6 +67,7 @@ static void usage(const char *progname)
 		"The following OPTIONs are available:\n"
 		"\n"
 		"  -h, --help  print this usage message\n"
+		"  -V, --version  print version\n"
 		"  -w, --wait  wait for the first stage\n"
 		"\n"
 		"The STAGEs have the following format:\n"
