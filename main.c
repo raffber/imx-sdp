@@ -17,6 +17,10 @@ static const struct option longopts[] = {
 
 int main(int argc, char *argv[])
 {
+	/* Make stdout and stderr line-buffered */
+	setvbuf(stdout, NULL, _IOLBF, 0);
+	setvbuf(stderr, NULL, _IOLBF, 0);
+
 	int opt;
 	bool initial_wait = false;
 
