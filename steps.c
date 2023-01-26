@@ -57,7 +57,11 @@ sdp_step *sdp_parse_step(char *s)
 	}
 
 	sdp_step *result = malloc(sizeof(sdp_step));
-	// TODO: handle allocation failure
+	if (!result)
+	{
+		fprintf(stderr, "ERROR: Allocation failed\n");
+		return NULL;
+	}
 	result->next = NULL;
 
 	if (!strcmp(tok, "write_file"))
@@ -112,7 +116,7 @@ int sdp_execute_steps(hid_device *handle, sdp_step *step)
 		printf("[Step %d] ", i);
 		if (step->exec(handle, &step->data))
 		{
-			fprintf(stderr, "ERROR: Failed to execute step\n");
+			fprintf(stderr, "ERROR: Failed to execute step %d\n", i);
 			return 1;
 		}
 		step = step->next;

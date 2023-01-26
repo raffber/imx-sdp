@@ -19,6 +19,20 @@ enum command_type
 	SKIP_DCD_HEADER = 0x0C0C,
 };
 
+enum hab_status
+{
+	HAB_CLOSED = 0x12343412,
+	HAB_OPEN = 0x56787856,
+};
+
+enum response_code
+{
+	WRITE_REGISTER_COMPLETE = 0x128A8A12,
+	WRITE_FILE_COMPLETE = 0x88888888,
+	DCD_WRITE_COMPLETE = 0x128A8A12,
+	SKIP_DCD_HEADER_ACK = 0x900DD009,
+};
+
 static int write_command(hid_device *handle, enum command_type cmd, uint32_t address,
 						 uint8_t format, uint32_t data_count, uint32_t data)
 {
@@ -83,8 +97,27 @@ static int read_hab_status(hid_device *handle, uint32_t *status)
 {
 	unsigned char buf[5];
 	int res = read_report(handle, 3, buf, sizeof(buf), false);
-	if (status)
-		*status = *(uint32_t *)(buf + 1);
+	if (res)
+		fprintf(stderr, "ERROR: Failed to read HAB status\n");
+	else
+	{
+		uint32_t tmp = *(uint32_t *)(buf + 1);
+		if (status)
+			*status = tmp;
+		printf("HAB: ");
+		switch (tmp)
+		{
+		case HAB_CLOSED:
+			printf("closed\n");
+			break;
+		case HAB_OPEN:
+			printf("open\n");
+			break;
+		default:
+			printf("unknown (0x%08x)\n", *status);
+			break;
+		}
+	}
 	return res;
 }
 
@@ -92,8 +125,14 @@ static int read_response(hid_device *handle, uint32_t *status, bool optional)
 {
 	unsigned char buf[65];
 	int res = read_report(handle, 4, buf, sizeof(buf), optional);
-	if (status)
-		*status = *(uint32_t *)(buf + 1);
+	if (res && !optional)
+		fprintf(stderr, "ERROR: Failed to read response\n");
+	else
+	{
+		uint32_t tmp = *(uint32_t *)(buf + 1);
+		if (status)
+			*status = tmp;
+	}
 	return res;
 }
 
@@ -122,9 +161,9 @@ int sdp_write_file(hid_device *handle, const char *file_path, uint32_t address)
 		goto close_fd;
 
 	/*
-     * Optionally send ERROR_STATUS command here to see whether the device has
+	 * Optionally send ERROR_STATUS command here to see whether the device has
 	 * rejected the address.
-     */
+	 */
 
 	/* We need one extra byte for the initial report ID */
 	unsigned char buf[1025];
@@ -157,7 +196,11 @@ int sdp_write_file(hid_device *handle, const char *file_path, uint32_t address)
 	res = read_response(handle, &status, false);
 	if (res)
 		goto close_fd;
-	printf("HAB status: 0x%08x; response status: 0x%08x\n", hab_status, status);
+	if (status != WRITE_FILE_COMPLETE)
+	{
+		fprintf(stderr, "ERROR: Failed to write file: 0x%08x\n", status);
+		res = 1;
+	}
 
 close_fd:
 	close(fd);
@@ -176,6 +219,7 @@ int sdp_error_status(hid_device *handle, uint32_t *hab_status, uint32_t *status)
 	res = read_response(handle, status, false);
 	if (res)
 		return 1;
+	printf("Error status: 0x%08x\n", *status);
 	return 0;
 }
 
@@ -189,7 +233,6 @@ int sdp_jump_address(hid_device *handle, uint32_t address)
 	res = read_hab_status(handle, &hab_status);
 	if (res)
 		return 1;
-	printf("HAB status: 0x%08x\n", hab_status);
 	// Report 4 is only sent if the jump failed
 	res = read_response(handle, &status, true);
 	if (!res)

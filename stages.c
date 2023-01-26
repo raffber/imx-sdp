@@ -168,13 +168,11 @@ int sdp_execute_stages(sdp_stages *stages, bool initial_wait)
         uint32_t hab_status, status;
         res = sdp_error_status(handle, &hab_status, &status);
         if (res)
-            fprintf(stderr, "ERROR: Failed to read error status\n");
-        else
-            printf("HAB status: 0x%08x; status: 0x%08x\n", hab_status, status);
+            break;
 
         if (sdp_execute_steps(handle, stage->steps))
         {
-            fprintf(stderr, "ERROR: Failed to execute step\n");
+            fprintf(stderr, "ERROR: Failed to execute stage %d\n", i + 1);
             res = 1;
         }
 
