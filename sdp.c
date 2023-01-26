@@ -70,19 +70,22 @@ static int write_command(hid_device *handle, enum command_type cmd, uint32_t add
 }
 
 static int read_report(hid_device *handle, uint8_t report_id, unsigned char *buf,
-					   size_t length, bool quiet)
+					   size_t length, bool optional)
 {
-	int res = hid_read(handle, buf, length);
+	int res = hid_read_timeout(handle, buf, length, optional ? 500 : -1);
 	if (res < 0)
 	{
-		if (!quiet)
+		if (!optional)
 			fprintf(stderr, "ERROR: Failed to read report %d: %ls\n",
 					report_id, hid_error(handle));
 		return 1;
 	}
 	if ((size_t)res != length)
 	{
-		fprintf(stderr, "ERROR: Short report %d read (got=%d, wanted=%ld)\n", report_id, res, length);
+		/* This covers the timeout case (res==0) */
+		if (!optional)
+			fprintf(stderr, "ERROR: Short report %d read (got=%d, wanted=%ld)\n",
+					report_id, res, length);
 		return 1;
 	}
 	if (buf[0] != report_id)
