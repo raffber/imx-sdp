@@ -1,5 +1,6 @@
 project('imx-sdp', 'c',
-    version: '0.1',
+    version: run_command(['git', 'describe', '--dirty', '--always'],
+                         capture: true, check: true).stdout().strip(),
     license: 'GPL3',
 )
 
