@@ -170,7 +170,7 @@ static hid_device *open_device(uint16_t vid, uint16_t pid, const char *usb_path,
         printf("Waiting for device...\n");
 
 #ifdef WITH_UDEV
-        const char *devpath = sdp_udev_wait(udev, vid, pid, usb_path, 5000);
+        const char *devpath = sdp_udev_wait(udev, vid, pid, usb_path, 20000);
         if (!devpath)
         {
             fprintf(stderr, "ERROR: Timeout!\n");
